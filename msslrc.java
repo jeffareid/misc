@@ -14,46 +14,66 @@ class Node{
 }
 
 class NodePair{
-Node first;
-Node last;
+    Node first;
+    Node last;
 }
 
 public class x {
 
-    static void merge(Node before, Node F1, int N1,
-                       Node F2, int N2, NodePair NP)
+    static void merge(Node prev, Node f0, int n0,
+                       Node f1, int n1, NodePair np)
     {
-        Node first, last, temp;
-        int I, J;
-        first = last = F1.data <= F2.data ? F1 : F2;
-        for (I=J=0; I < N1 || J < N2; ) {
-            if (I < N1 && (J>=N2 || F1.data <= F2.data))
-                 { temp = F1; F1 = F1.next; I++; }
-            else { temp = F2; F2 = F2.next; J++; }
-            last.next = temp;
-            last = temp;
+        Node first = f0.data <= f1.data ? f0 : f1;
+        Node last = prev;
+        int i = 0;
+        int j = 0;
+        while(true){
+            if(f0.data <= f1.data){         // if f0 < f1
+                last.next = f0;             //  move f0
+                last = f0;
+                f0 = f0.next;
+                if(++i < n0)                //  if not end run 0
+                    continue;               //   continue back to while
+                last.next = f1;             //  else link run 1
+                while(++j < n1)
+                    f1 = f1.next;
+                last = f1;
+                f1 = f1.next;
+                break;
+            } else {                
+                last.next = f1;             //  move f1
+                last = f1;
+                f1 = f1.next;
+                if(++j < n1)                //  if not end run 1
+                    continue;               //   continue back to while
+                last.next = f0;             //  else link run 0
+                while(++i < n0)
+                    f0 = f0.next;
+                last = f0;
+//              f0 = f0.next;
+                break;
+            }
         }
-        before.next = first;
-        last.next = F2;
-        NP.first = first;
-        NP.last = last;       
+        np.first  = first;
+        np.last   = last;
+        last.next = f1;
     }
 
-    static void mergesort(Node before, Node F1, int N1, NodePair NP)
+    static void mergesort(Node prev, Node f0, int n0, NodePair np)
     {
-        if (N1 <= 1)
-            NP.first = NP.last = F1;
-        else {
-            Node F2;
-            int N2; 
-            N2 = N1; N1 >>= 1; N2 -= N1;
-            mergesort(before, F1, N1, NP);
-            F1 = NP.first;
-            F2 = NP.last.next;
-            mergesort(NP.last, F2, N2, NP);
-            F2 = NP.first;
-            merge(before, F1, N1, F2, N2, NP);
+        if(n0 <= 1){
+            np.first = np.last = f0;
+            return;
         }
+        Node f1;
+        int n1; 
+        n1 = n0; n0 >>= 1; n1 -= n0;
+        mergesort(prev, f0, n0, np);
+        f0 = np.first;
+        f1 = np.last.next;
+        mergesort(np.last, f1, n1, np);
+        f1 = np.first;
+        merge(prev, f0, n0, f1, n1, np);
     }
 
     // test sort
@@ -61,8 +81,8 @@ public class x {
     {
         Node node = head;
         NodePair np= new NodePair();
-        Node before = new Node();
-        before.next = head;
+        Node prev = new Node();
+        prev.next = head;
         long bgn, end;
         int i;
         // fill list with random data
@@ -73,12 +93,12 @@ public class x {
         }
         // time sort
         bgn = System.currentTimeMillis();
-        mergesort(before, head, n, np);
+        mergesort(prev, head, n, np);
         end = System.currentTimeMillis();
         System.out.println("milliseconds " + (end-bgn));
         // verify sort
         i = 1;
-        node = before.next;
+        node = prev.next;
         while(node.next != null){
             if(node.data > node.next.data)
                 break;
@@ -89,7 +109,7 @@ public class x {
             System.out.println("sort passed");
         else
             System.out.println("sort failed");
-        return before.next;
+        return prev.next;
     }
 
     // main
