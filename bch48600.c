@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
 /*      bch48600.c      bch((48600,48408)  DVBS2 code                   */
 /*                                                                      */
-/*      Jeff Reid       2021JAN08 17:30                                 */
+/*      Jeff Reid       2021JAN09 11:00                                 */
 /*----------------------------------------------------------------------*/
 #include <intrin.h>
 #include <memory.h>
@@ -27,6 +27,12 @@ typedef unsigned long long QWORD;
 /* number of suyndromes */
 #define NSYN 24
 
+/*                              ** if != 0, use extended euclid algorithm */
+#define EEUCLID 0
+
+/*                              ** display euclid stuff */
+#define DISPLAYE 0
+
 /*                              ** display stuff */
 #define DISPLAY 0
 
@@ -35,7 +41,15 @@ typedef struct{                 /* vector structure */
     WORD  data[31];
 }VECTOR;
 
-/* if QP != 0, use queryperformance for timer */
+#if EEUCLID
+typedef struct{                 /* euclid structure */
+    WORD  size;                 /* # of data words */
+    WORD  indx;                 /* index to right side */
+    WORD  data[NSYN+2];         /* left and right side data */
+}EUCLID;
+#endif
+
+/*                              ** if QP != 0, use queryperformance for timer */
 #define QP 1
 
 #if QP
@@ -45,19 +59,6 @@ typedef struct{                 /* vector structure */
 typedef LARGE_INTEGER LI64;
 #else
 #include <time.h>
-#endif
-
-#if QP
-static LI64     liQPFrequency;  /* cpu counter values */
-static LI64     liStartTime;
-static LI64     liStopTime;
-static double   dQPFrequency;
-static double   dStartTime;
-static double   dStopTime;
-static double   dElapsedTime;
-#else
-static clock_t ctTimeStart;     /* clock values */
-static clock_t ctTimeStop;
 #endif
 
 /*----------------------------------------------------------------------*/
@@ -74,18 +75,36 @@ static QWORD polytbl[256][3];   /* encode poly table */
 
 static WORD syntbl[256][NSYN];  /* syndrome table */
 
-static BYTE msg[BN/8];          /* encoded message */
+static BYTE msg[(BN+7)/8];      /* encoded message */
 
+#if EEUCLID
+static EUCLID   E0;             /* used by GenpErrors (extended Euclid) */
+static EUCLID   E1;
+#else
 static VECTOR   vB;             /* used by GenpErrors (Berleykamp Massey) */
 static VECTOR   vC;
 static VECTOR   vT;
 static VECTOR   vBx;
+#endif
 
 static VECTOR   vSyndromes;
 static VECTOR   pErrors;
 static VECTOR   pLambda;
 static VECTOR   vLocators;
 static VECTOR   vOffsets;
+
+#if QP
+static LI64     liQPFrequency;  /* cpu counter values */
+static LI64     liStartTime;
+static LI64     liStopTime;
+static double   dQPFrequency;
+static double   dStartTime;
+static double   dStopTime;
+static double   dElapsedTime;
+#else
+static clock_t ctTimeStart;     /* clock values */
+static clock_t ctTimeStop;
+#endif
 
 /*----------------------------------------------------------------------*/
 /*      code                                                            */
@@ -106,6 +125,9 @@ static WORD GFDiv(WORD, WORD);
 #define GFAdd(a, b) (a^b)
 #define GFSub(a, b) (a^b)
 static void ShowVector(VECTOR *);
+#if EEUCLID
+static void ShowEuclid(EUCLID *);
+#endif
 
 /*----------------------------------------------------------------------*/
 /*      main                                                            */
@@ -122,8 +144,6 @@ WORD i;
 #if QP
     QueryPerformanceFrequency(&liQPFrequency);
     dQPFrequency = (double)liQPFrequency.QuadPart;
-    timeBeginPeriod(1);         /* set ticker to 1000 hz */
-    Sleep(128);                 /* wait for it to settle */
     QueryPerformanceCounter(&liStartTime);
 #else
     ctTimeStart = clock();
@@ -134,13 +154,12 @@ WORD i;
     dStartTime = (double)liStartTime.QuadPart;
     dStopTime  = (double)liStopTime.QuadPart;
     dElapsedTime = (dStopTime - dStartTime) / dQPFrequency;
-    timeEndPeriod(1);           /* restore ticker to default */
     printf("# of seconds %f\n", dElapsedTime);
 #else
     ctTimeStop = clock();
     printf("# of ticks %u\n", ctTimeStop - ctTimeStart);
 #endif
-    msg[   0] ^= 0x80;          /* test error case */
+    msg[   0] ^= 0x80;          /* test 12 error bit case */
     msg[ 506] ^= 0x40;
     msg[1012] ^= 0x20;
     msg[1518] ^= 0x10;
@@ -153,10 +172,6 @@ WORD i;
     msg[5568] ^= 0x02;
     msg[6074] ^= 0x01;
 #if QP
-    QueryPerformanceFrequency(&liQPFrequency);
-    dQPFrequency = (double)liQPFrequency.QuadPart;
-    timeBeginPeriod(1);         /* set ticker to 1000 hz */
-    Sleep(128);                 /* wait for it to settle */
     QueryPerformanceCounter(&liStartTime);
 #else
     ctTimeStart = clock();
@@ -170,7 +185,6 @@ WORD i;
     dStartTime = (double)liStartTime.QuadPart;
     dStopTime  = (double)liStopTime.QuadPart;
     dElapsedTime = (dStopTime - dStartTime) / dQPFrequency;
-    timeEndPeriod(1);           /* restore ticker to default */
     printf("# of seconds %f\n", dElapsedTime);
 #else
     ctTimeStop = clock();
@@ -305,16 +319,16 @@ QWORD b, q, i;                  /* byte, quotient bit, i */
 /*----------------------------------------------------------------------*/
 static void GenSynTbl(void)
 {
-WORD i, j, k, ap, s;
+WORD i, j, k, apwr, sum;
     for(k = 0; k < 0x100; k++){
         for(j = 0; j < NSYN; j++){
-            ap = GFPwr(2, j+1);
-            s = 0;
+            apwr = GFPwr(2, j+1);
+            sum = 0;
             for(i = 0; i < 8; i++){
                 if(k & (1<<i))
-                    s ^= GFPwr(ap, i);
+                    sum ^= GFPwr(apwr, i);
             }
-            syntbl[k][j] = s;
+            syntbl[k][j] = sum;
         }
     }
 }
@@ -367,17 +381,143 @@ QWORD i, j;
 /*----------------------------------------------------------------------*/
 static void GenSyndromes(void)
 {
-WORD i, j, ap;
+WORD i, j, apwr;
     vSyndromes.size = NSYN;
     memset(vSyndromes.data, 0, NSYN*sizeof(WORD));
     for(j = 0; j < BN/8; j++){
         for(i = 0; i < NSYN; i++){
-            ap = GFPwr(2, (i+1)<<3);
-            vSyndromes.data[i] = GFMpy(vSyndromes.data[i], ap) ^
+            apwr = GFPwr(2, (i+1)<<3);
+            vSyndromes.data[i] = GFMpy(vSyndromes.data[i], apwr) ^
                                  syntbl[msg[j]][i];
         }
     }
 }
+
+#if EEUCLID
+/*----------------------------------------------------------------------*/
+/*      GenpErrors     generate pErrors via Euclid division algorithm   */
+/*----------------------------------------------------------------------*/
+static void GenpErrors(void)
+{
+/* R[] is msb first | A[] is msb last (reversed) */
+EUCLID *pED;                            /* R[i-2] | A[i-1] */
+EUCLID *pER;                            /* R[i-1] | A[i-2] */
+EUCLID *pET;                            /* temp */
+int     i, j;
+WORD    bME;                            /* max errors possible */
+WORD    bQuot;                          /* quotient */
+
+/*      E0 = initial ED: E0.R[-1] = x^MAXERR, E0.A[0] = 1 */
+    E0.size = vSyndromes.size+2;
+    E0.indx = vSyndromes.size+1;
+    E0.data[0] = 1;
+    memset(&E0.data[1], 0, vSyndromes.size*sizeof(WORD));
+    E0.data[E0.indx] = 1;
+    pED = &E0;
+
+/*      E1 = initial ER: E1.R[0] = syndrome polynomial, E1.A[-1] = 0 */
+    E1.size = vSyndromes.size+2;
+    E1.indx = vSyndromes.size+1;
+    E1.data[0] = 0;
+    for(i = 1; i < E1.indx; i++){
+        E1.data[i] = vSyndromes.data[vSyndromes.size-i];}
+    E1.data[E1.indx] = 0;
+    pER = &E1;
+
+/*      init bME */
+    bME = vSyndromes.size/2;
+
+/*      Euclid algorithm */
+
+    while(1){                           /* while degree ER.R > max errors */ 
+#if DISPLAYE
+        printf("ED: ");
+        ShowEuclid(pED);
+        printf("ER: ");
+        ShowEuclid(pER);
+#endif
+        while((pER->data[0] == 0) &&    /* shift dvsr left until msb!=0 */
+              (pER->indx != 0)){        /*  or fully shifted left */
+            pER->indx--;
+            memcpy(&pER->data[0], &pER->data[1], (pER->size-1)*sizeof(WORD));
+            pER->data[pER->size-1] = 0;}
+
+        if(pER->indx <= bME){           /* if degree ER.R[] <= bME, break */
+            break;}
+
+        while(1){                       /* while more sub-steps */
+            if(pED->data[0]){           /*   if ED.R[] msb!=0, update ED, ER */
+                bQuot = GFDiv(pED->data[0], pER->data[0]); /* Q=ED.R[msb]/ER.R[msb] */
+                for(i = 0; i < pER->indx; i++){            /* ED.R[]=ED.R[]-Q*ER.R[] */
+                    pED->data[i] = GFSub(pED->data[i], GFMpy(bQuot, pER->data[i]));}
+                for(i = pED->indx; i < pER->size; i++){    /* ER.A[]=ER.A[]-Q*ED.A[] */
+                    pER->data[i] = GFSub(pER->data[i], GFMpy(bQuot, pED->data[i]));}}
+            if(pED->indx == pER->indx){ /*   if sub-steps done, break */
+                break;}
+            pED->indx--;                /*   shift ED left */
+            memcpy(&pED->data[0], &pED->data[1], (pED->size-1)*sizeof(WORD));
+            pED->data[pED->size-1] = 0;}
+
+        pET = pER;                      /* swap ED, ER */
+        pER = pED;
+        pED = pET;}
+
+    pErrors.size = pED->size-pED->indx; /* set pErrors.size */
+
+    if((pER->indx) >= pErrors.size){    /*  if degree ER.R too high */
+        printf("GenpErrors remainder.size >= errors.size\n");
+        goto fail0;}
+
+#if 0
+    j = pErrors.size - 1;       /* right shift ER if Omega has leading zeroes */
+    while(pER->indx < j){
+        pER->indx++;
+        for(i = pER->size-1; i;){
+            i--;
+            pER->data[i+1] = pER->data[i];}
+        pER->data[0] = 0;}
+#if DISPLAYE
+    printf("EX: ");
+    ShowEuclid(pER);
+#endif
+#endif
+
+/*      pErrors = ED.A[] without unreversing = Lambda reversed */
+    j = pED->indx;
+    for(i = 0; i < pErrors.size; i++){
+        pErrors.data[i] = pED->data[j];
+        j++;}
+
+#if DISPLAYE
+    printf("pErrors (e):    ");
+    ShowVector(&pErrors);
+#endif
+
+/*      Make most significant coef pErrors == 1 (divide by it) */
+    bQuot = pErrors.data[0];
+    if(bQuot == 0){
+        printf("GenpErrors most sig coef of pErrors == 0\n");
+        pLambda.size = 1;
+        pLambda.data[0] = 1;
+        goto fail0;}
+    for(i = 0; i < pErrors.size; i++){
+        pErrors.data[i] = GFDiv(pErrors.data[i], bQuot);}
+#if DISPLAYE
+    printf("pErrors (E):    ");
+    ShowVector(&pErrors);
+#endif
+
+/*      Find roots of pErrors (if fail, then set for no roots) */
+
+    if(Poly2Root(&vLocators, &pErrors)){    /* solve error poly */
+        printf("GenpErrors poly2root failed \n");
+fail0:
+        pErrors.size = 1;                   /* handle no root case */
+        pErrors.data[0] = 1;
+        vLocators.size = 0;}
+}
+
+#else
 
 /*----------------------------------------------------------------------*/
 /*      GenpErrors      generate pErrors via Berklekamp Massey          */
@@ -390,15 +530,18 @@ WORD L, m;
 WORD b, d;
 WORD db;
 
-    b = 1;                          /* discrepancy when L last updated */
-    L = 0;                          /* number of errors */
-    m = 1;                          /* # iterations since L last updated */
+    b = 1;                              /* discrepancy when L last updated */
+    L = 0;                              /* number of errors */
+    m = 1;                              /* # iterations since L last updated */
     vB.size    = 1;
     vB.data[0] = 1;
     vC.size    = 1;
     vC.data[0] = 1;
 
     for(n = 0; n < vSyndromes.size; n++){
+        if(n&1){                        /* BCH only, if odd step, d == 0 */
+            m += 1;
+            continue;}
         d = vSyndromes.data[n];         /* calculate discrepancy */
         for(i = 1; i <= L; i++){
             d = GFAdd(d, GFMpy(vC.data[(vC.size - 1)- i], vSyndromes.data[n-i]));}
@@ -448,6 +591,8 @@ WORD db;
         pErrors.data[0] = 1;
         vLocators.size = 0;}
 }
+
+#endif
 
 /*----------------------------------------------------------------------*/
 /*      GenOffsets                                                      */
@@ -576,3 +721,20 @@ WORD i;
         printf(" %04x", pVSrc->data[i]);
     printf("\n");
 }
+
+#if EEUCLID
+/*----------------------------------------------------------------------*/
+/*      ShowEuclid                                                      */
+/*----------------------------------------------------------------------*/
+static void ShowEuclid(EUCLID *pESrc)
+{
+WORD i;
+    for(i = 0; i < pESrc->indx; i++){
+        printf(" %04x", pESrc->data[i]);}
+    printf("|");
+    for( ; i < pESrc->size; i++){
+        printf("%04x ", pESrc->data[i]);}
+    printf("\n");
+}
+#endif
+
