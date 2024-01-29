@@ -1,9 +1,7 @@
 //----------------------------------------------------------------------//
 //      xorlist.cpp     xor linked list                                 //
 //----------------------------------------------------------------------//
-#include <ctime>
 #include <iostream>
-#include <math.h>
 
 typedef unsigned long long uint64_t;
 
