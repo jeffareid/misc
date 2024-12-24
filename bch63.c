@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
-/*      bch63.c         63 bit codeword, GF(2^6)                        */
+/*      bch63. c        63 bit codeword, GF(2^6)                        */
 /*                                                                      */
-/*      Jeff Reid       2020DEC20 22:00                                 */
+/*      Jeff Reid       2024JUL11 23:20                                 */
 /*----------------------------------------------------------------------*/
 #include <intrin.h>
 #include <memory.h>
@@ -16,8 +16,7 @@ typedef unsigned long long QWORD;
 /*                              ** GF(2^6): x^6 + x + 1 */
 #define POLY (0x43)
 
-/*                              ** GF(2^6) primitive */
-#define ALPHA (0x2)
+#define ALPHA (0x02)
 
 /*                              ** 4 error correction, 8 syndromes */
 #define NSYN (8)
@@ -29,26 +28,26 @@ typedef unsigned long long QWORD;
 #define DISPLAYE 0
 
 /*                              ** display error locator poly */
-#define DISPLAYP 1
+#define DISPLAYP 0
 
 typedef struct{                 /* vector structure */
     BYTE  size;
-    BYTE  data[15];
+    BYTE  data[63];
 }VECTOR;
 
 #if EEUCLID
 typedef struct{                 /* euclid structure */
     BYTE  size;                 /* # of data bytes */
     BYTE  indx;                 /* index to right side */
-    BYTE  data[NSYN+2];         /* left and right side data */
+    BYTE  data[62];             /* left and right side data */
 }EUCLID;
 #endif
 
 static __m128i poly;            /* generator poly */
 static __m128i invpoly;         /* 2^64 / POLY */
 
-static BYTE log2[64];           /* log2 table */
-static BYTE alog2[64];          /* alog2 table */
+static BYTE exp64[64];          /* exp64 table */
+static BYTE log64[64];          /* log64 table */
 static BYTE minplyf[128];       /* minimum polynomial flags */
 static BYTE minply[64];         /* minimum polynomials */
 static BYTE mincnt;             /* # of minimum polymials */
@@ -77,6 +76,7 @@ static VECTOR   pLambda;
 static VECTOR   vLocators;
 static VECTOR   vOffsets;
 
+static void ListAlphas();
 static void Tbli(void);
 static void GenPoly(void);
 static void Encode(void);
@@ -88,35 +88,86 @@ static int  Poly2Root(VECTOR *, VECTOR *);
 static BYTE GFPwr(BYTE, BYTE);
 static BYTE GFMpy(BYTE, BYTE);
 static BYTE GFDiv(BYTE, BYTE);
+static void ShowVector(VECTOR *);
 #if EEUCLID
 static void ShowEuclid(EUCLID *);
 #endif
-static void ShowVector(VECTOR *);
+static void InitCombination(int[], int, int);
+static int  NextCombination(int[], int, int);
 
 #define GFAdd(a, b) (a^b)
 #define GFSub(a, b) (a^b)
 
+/*----------------------------------------------------------------------*/
+/*      main                                                            */
+/*----------------------------------------------------------------------*/
 main()
 {
+int ptn[4];                     /* error bit indexes */
+int n;                          /* number of errors to test */
+int i;
+
+#if 0
+    ListAlphas();               /* list alphas */
+#endif
     Tbli();                     /* init tables */
     GenPoly();                  /* generate poly info */
-    msg.m128i_u64[0] = 0x123456789a000000ull;       /* test message */
+    msg.m128i_u64[0] = 0x123456789f000000ull;   /* test message */
     Encode();                   /* encode message */
     encmsg = msg.m128i_u64[0];
-    msg.m128i_u64[0] ^= 0x4000020000800001ull;      /* create 4 error(s) */
-    GenSyndromes();             /* generate syndromes */
-    GenpErrors();               /* generate error location info */
-#if DISPLAYP
-    printf("pErrors:    ");
-    ShowVector(&pErrors);
-#endif
-    GenOffsets();               /* convert to offsets */
-    FixErrors();                /* correct error bits */
-    if(encmsg == msg.m128i_u64[0])
-        printf("passed\n");
-    else
-        printf("failed\n");
+    for(n = 1; n <= 4; n++){    /* test 1 to 4 bit error patterns */
+        InitCombination(ptn, n, 63);
+        while(NextCombination(ptn, n, 63)){
+            for(i = 0; i < n; i++)
+                msg.m128i_u64[0] ^= 1ull<<ptn[i];
+            GenSyndromes();     /* generate syndromes */
+            GenpErrors();       /* generate error location info */
+            GenOffsets();       /* convert to offsets */
+            FixErrors();        /* correct error bits */
+            if(encmsg != msg.m128i_u64[0]){
+                printf("failed\n");
+                return 0;
+            }
+        }
+    }
+    printf("passed\n");
     return 0;
+}
+
+/*----------------------------------------------------------------------*/
+/*      ListAlphas                                                      */
+/*----------------------------------------------------------------------*/
+static void ListAlphas()
+{
+__m128i d0, alpha;
+DWORD i, j, k;
+    k = 0;
+    for(j = 2; j < 0x40; j++){
+        alpha.m128i_u64[0] = j;
+        d0.m128i_u64[0] = 0x01;
+        i = 0;
+        while(1){
+            d0 = _mm_clmulepi64_si128(d0, alpha, 0x00);
+            if(d0.m128i_u16[0] & 0x0400)
+                d0.m128i_u16[0] ^= POLY<<4;
+            if(d0.m128i_u16[0] & 0x0200)
+                d0.m128i_u16[0] ^= POLY<<3;
+            if(d0.m128i_u16[0] & 0x0100)
+                d0.m128i_u16[0] ^= POLY<<2;
+            if(d0.m128i_u16[0] & 0x0080)
+                d0.m128i_u16[0] ^= POLY<<1;
+            if(d0.m128i_u16[0] & 0x0040)
+                d0.m128i_u16[0] ^= POLY<<0;
+            if(d0.m128i_u16[0] == 0x01)
+                break;
+            i++;
+        }
+        if(i == 0x3e){
+            printf(" %02x", j);
+            if(++k == 8){
+                printf("\n");
+                k = 0;}}
+    }
 }
 
 /*----------------------------------------------------------------------*/
@@ -124,21 +175,31 @@ main()
 /*----------------------------------------------------------------------*/
 static void Tbli()              /* init tables */
 {
+__m128i d0, alpha;
 BYTE *p0, *p1;
-int d0;
-    d0 = 01;                        /* init alog2 table */
-    p0 = alog2;
+    alpha.m128i_u64[0] = ALPHA; /* init exp64 table */
+    d0.m128i_u64[0] = 0x01;
+    p0 = exp64;
     for(p1 = p0+64; p0 < p1;){
-        *p0++ = d0;
-        d0 <<= 1;
-        if(d0 & 0x40)
-            d0 ^= POLY;}
-    
-    p0 = alog2;                     /* init log2 table */
-    p1 = log2;
+        *p0++ = d0.m128i_u8[0];
+        d0 = _mm_clmulepi64_si128(d0, alpha, 0x00);
+        if(d0.m128i_u16[0] & 0x0400)
+            d0.m128i_u16[0] ^= POLY<<4;
+        if(d0.m128i_u16[0] & 0x0200)
+            d0.m128i_u16[0] ^= POLY<<3;
+        if(d0.m128i_u16[0] & 0x0100)
+            d0.m128i_u16[0] ^= POLY<<2;
+        if(d0.m128i_u16[0] & 0x0080)
+            d0.m128i_u16[0] ^= POLY<<1;
+        if(d0.m128i_u16[0] & 0x0040)
+            d0.m128i_u16[0] ^= POLY<<0;
+    }
+
+    p0 = exp64;                 /* init log64 table */
+    p1 = log64;
     *p1 = 0;
-    for(d0 = 0; d0 < 63; d0 += 1)
-        *(p1+*p0++) = d0;
+    for(d0.m128i_u8[0] = 0; d0.m128i_u8[0] < 63; d0.m128i_u8[0] += 1)
+        *(p1+*p0++) = d0.m128i_u8[0];
 }
 
 /*----------------------------------------------------------------------*/
@@ -206,7 +267,7 @@ static void Encode(void)
     par = _mm_clmulepi64_si128(msg, invpoly, 0x00); /* par[1] = quotient */
     par = _mm_clmulepi64_si128(par, poly, 0x01);    /* par[0] = product */
     par.m128i_u64[0] ^= msg.m128i_u64[0];           /* par[0] = remainder */
-    msg.m128i_u64[0] |= par.m128i_u64[0];           /* msg[0] = encoded message */
+    msg.m128i_u64[0] ^= par.m128i_u64[0];           /* msg[0] = encoded message */
 }
 
 /*----------------------------------------------------------------------*/
@@ -228,7 +289,7 @@ BYTE i, ap, s;
             s ^= GFPwr(ap, x);
         }
         vSyndromes.data[i] = s;
-    }       
+    }
 }
 
 #if EEUCLID
@@ -267,7 +328,7 @@ BYTE    bQuot;                          /* quotient */
 
 /*      Euclid algorithm */
 
-    while(1){                           /* while degree ER.R > max errors */ 
+    while(1){                           /* while degree ER.R > max errors */
 #if DISPLAYE
         printf("ED: ");
         ShowEuclid(pED);
@@ -368,15 +429,19 @@ BYTE L, m;
 BYTE b, d;
 BYTE db;
 
-    b = 1;                          /* discrepancy when L last updated */
-    L = 0;                          /* number of errors */
-    m = 1;                          /* # iterations since L last updated */
+    b = 1;                              /* discrepancy when L last updated */
+    L = 0;                              /* number of errors */
+    m = 1;                              /* # iterations since L last updated */
     vB.size    = 1;
     vB.data[0] = 1;
     vC.size    = 1;
     vC.data[0] = 1;
 
     for(n = 0; n < vSyndromes.size; n++){
+        if(n&1){                        /* BCH only, if odd step, d == 0 */
+            m += 1;
+            continue;
+        }
         d = vSyndromes.data[n];         /* calculate discrepancy */
         for(i = 1; i <= L; i++){
             d = GFAdd(d, GFMpy(vC.data[(vC.size - 1)- i], vSyndromes.data[n-i]));}
@@ -437,7 +502,7 @@ static void GenOffsets(void)
 BYTE i;
     vOffsets.size = vLocators.size;
     for(i = 0; i < vLocators.size; i++){
-        vOffsets.data[i] = log2[vLocators.data[i]];
+        vOffsets.data[i] = log64[vLocators.data[i]];
     }
 }
 
@@ -448,7 +513,7 @@ static void FixErrors()
 {
 BYTE i;
     for(i = 0; i < vOffsets.size; i++)
-        msg.m128i_u64[0] ^= 1ull<<vOffsets.data[i]; 
+        msg.m128i_u64[0] ^= 1ull<<vOffsets.data[i];
 }
 
 /*----------------------------------------------------------------------*/
@@ -493,7 +558,7 @@ BYTE    i,j;
 /*----------------------------------------------------------------------*/
 static BYTE GFPwr(BYTE m0, BYTE m1)
 {
-    return alog2[(BYTE)((log2[m0]*(DWORD)m1)%63)];
+    return exp64[(BYTE)((log64[m0]*(DWORD)m1)%63)];
 }
 
 /*----------------------------------------------------------------------*/
@@ -504,10 +569,10 @@ static BYTE GFMpy(BYTE m0, BYTE m1) /* multiply */
 int m2;
     if(0 == m0 || 0 == m1)
         return(0);
-    m2 = log2[m0] + log2[m1];
+    m2 = log64[m0] + log64[m1];
     if(m2 > 63)
         m2 -= 63;
-    return(alog2[m2]);
+    return(exp64[m2]);
 }
 
 /*----------------------------------------------------------------------*/
@@ -515,14 +580,29 @@ int m2;
 /*----------------------------------------------------------------------*/
 static BYTE GFDiv(BYTE m0, BYTE m1) /* divide */
 {
-    int m2;
+int m2;
     if(0 == m0)
         return(0);
-    m2 = log2[m0] - log2[m1];
+    m2 = log64[m0] - log64[m1];
     if(m2 < 0)
         m2 += 63;
-    return(alog2[m2]);
+    return(exp64[m2]);
 }
+
+/*----------------------------------------------------------------------*/
+/*      ShowVector                                                      */
+/*----------------------------------------------------------------------*/
+static void ShowVector(VECTOR *pVSrc)
+{
+BYTE    i;
+    for(i = 0; i < pVSrc->size; ){
+        printf(" %02x", pVSrc->data[i]);
+        i++;
+        if(0 == (i&0xf)){
+            printf("\n");}}
+    printf("\n");
+}
+
 
 #if EEUCLID
 /*----------------------------------------------------------------------*/
@@ -541,15 +621,25 @@ BYTE    i;
 #endif
 
 /*----------------------------------------------------------------------*/
-/*      ShowVector                                                      */
+/*      InitCombination - init combination                              */
 /*----------------------------------------------------------------------*/
-static void ShowVector(VECTOR *pVSrc)
-{
-BYTE    i;
-    for(i = 0; i < pVSrc->size; ){
-        printf(" %02x", pVSrc->data[i]);
-        i++;
-        if(0 == (i&0xf)){
-            printf("\n");}}
-    printf("\n");
+void InitCombination(int a[], int k, int n) {
+    for(int i = 0; i < k; i++)
+        a[i] = i;
+    --a[k-1];
+}
+
+/*----------------------------------------------------------------------*/
+/*      NextCombination - generate next combination                     */
+/*----------------------------------------------------------------------*/
+int NextCombination(int a[], int k, int n) {
+int pivot = k - 1;
+    while (pivot >= 0 && a[pivot] == n - k + pivot)
+        --pivot;
+    if (pivot == -1)
+        return 0;
+    ++a[pivot];
+    for (int i = pivot + 1; i < k; ++i)
+        a[i] = a[pivot] + i - pivot;
+    return 1;
 }
