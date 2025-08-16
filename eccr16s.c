@@ -1191,6 +1191,7 @@ BYTE t;
 
 #if SYN
     vA2I.size = vA.size;
+    vA2I.data[0] = vA.size;
     for(i = 0; i < vA2I.size; i++)
         vA2I.data[vA.data[i]] = i;
     vB.size = vA.size-1;
