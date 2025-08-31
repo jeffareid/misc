@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
 /*      eccr17z.c       ecc rs GF(17) + syndromes                       */
 /*                                                                      */
-/*      Jeff Reid       2025AUG16 16:50                                 */
+/*      Jeff Reid       2025AUG16 17:00                                 */
 /*----------------------------------------------------------------------*/
 #define _CRT_SECURE_NO_WARNINGS 1       /* disable sscanf warnings */
 
@@ -115,7 +115,7 @@ static VECTOR   pO;                     /* pOmega */
 static VECTOR   vF;                     /* error values */
 static VECTOR   pP[GF];                 /* polynomials */
 static VECTOR   pL[GF];                 /* L[] polynomials */
-static VECTOR   pS[GF];                 /* syndrome polynomial */
+static VECTOR   pS[GF];                 /* S[] syndrome polynomials */
 
 static VECTOR   vE;                     /* error poly */
 static VECTOR   vP;                     /* mapping poly */
