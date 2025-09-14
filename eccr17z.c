@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
 /*      eccr17z.c       ecc rs GF(17) + syndromes                       */
 /*                                                                      */
-/*      Jeff Reid       2025AUG16 17:00                                 */
+/*      Jeff Reid       2025AUG16 17:30                                 */
 /*----------------------------------------------------------------------*/
 #define _CRT_SECURE_NO_WARNINGS 1       /* disable sscanf warnings */
 
@@ -651,6 +651,7 @@ WORD    t;
 
 /*      E0 = R[0] | A[1]                    */
 /*      R[0] = z^F | A[1] = 1               */
+
     E0.size = F+2;
     E0.indx = F+1;
     for(i = 1; i < E0.indx; i++)        /* zero R[0] */
@@ -1440,6 +1441,7 @@ DoUser0:
         break;
       case 'X':                         /* undo encode vandermonde */
         UnEncodeV();
+        Encode();
         break;
       case 'F':                         /* fix */
 #if BW
