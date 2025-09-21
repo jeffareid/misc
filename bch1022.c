@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
 /*      bch1022.c       bch(1022,992)                                   */
 /*                                                                      */
-/*      Jeff Reid       2021JAN09 11:15                                 */
+/*      Jeff Reid       2021JAN09 11:30                                 */
 /*----------------------------------------------------------------------*/
 #include <intrin.h>
 #include <memory.h>
@@ -162,7 +162,7 @@ WORD i;
 #endif
       msg[  0] ^= 0x80;         /* test 3 error bit case */
       msg[ 64] ^= 0x10;
-      msg[127] ^= 0x08;   
+      msg[127] ^= 0x08;
 #if QP
     QueryPerformanceCounter(&liStartTime);
 #else
@@ -203,7 +203,7 @@ WORD i;
 }
 
 /*----------------------------------------------------------------------*/
-/*      GenMinPoly      generate 12 mininum polynomials                 */
+/*      GenMinPoly      generate 3 mininum polynomials                  */
 /*----------------------------------------------------------------------*/
 static void GenMinPoly(void)
 {
@@ -212,10 +212,9 @@ WORD sum;                       /* sum, looking for zeroes */
 WORD apwr;                      /* alpha to power */
 WORD i,j;
 
-    /* find 3 minimum polynomials for 6 powers of 2 */
-    i = 0;
-    do{
-        apwr = GFPwr(2,++i);
+    /* find 3 minimum polynomials for 5 powers of 2 */
+    for(i = 1; i < NSYN; i++){
+        apwr = GFPwr(2,i);
         for(poly = 0x401; poly <= 0x7ff ; poly++){
             sum = 0;
             for(j = 0; j <= 10; j++){
@@ -230,7 +229,7 @@ WORD i,j;
                 break;
             }
         }
-    }while(i < NSYN);
+    }
 }
 
 /*----------------------------------------------------------------------*/
@@ -250,7 +249,7 @@ DWORD b, q, i;                  /* byte, quotient bit, i */
     p.m128i_u64[1] = minply[2];
     p = _mm_clmulepi64_si128(p, p, 0x01);
     poly = p.m128i_u32[0]<<2;
-/* generate polytbl */  
+/* generate polytbl */
     for(b = 0x000; b < 0x100; b++){
         t = b<<24;
         for(i = 0; i < 8; i++){
@@ -362,7 +361,7 @@ WORD    bQuot;                          /* quotient */
 
 /*      Euclid algorithm */
 
-    while(1){                           /* while degree ER.R > max errors */ 
+    while(1){                           /* while degree ER.R > max errors */
 #if DISPLAYE
         printf("ED: ");
         ShowEuclid(pED);
