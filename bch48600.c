@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
 /*      bch48600.c      bch(48600,48408)  DVBS2 code                    */
 /*                                                                      */
-/*      Jeff Reid       2021JAN09 11:15                                 */
+/*      Jeff Reid       2021JAN09 11:30                                 */
 /*----------------------------------------------------------------------*/
 #include <intrin.h>
 #include <memory.h>
@@ -221,10 +221,9 @@ DWORD sum;                      /* sum, looking for zeroes */
 WORD apwr;                      /* alpha to power */
 WORD i,j;
 
-    /* find 12 minimum polynomials for 24 powers of 2 */
-    i = 0;
-    do{
-        apwr = GFPwr(2,++i);
+    /* find 12 minimum polynomials for 23 powers of 2 */
+    for(i = 1; i < NSYN; i++){
+        apwr = GFPwr(2,i);
         for(poly = 0x10001; poly <= 0x1ffff ; poly++){
             sum = 0;
             for(j = 0; j <= 16; j++){
@@ -239,7 +238,7 @@ WORD i,j;
                 break;
             }
         }
-    }while(i < NSYN);
+    }
 }
 
 /*----------------------------------------------------------------------*/
