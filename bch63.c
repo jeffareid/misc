@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
-/*      bch63. c        63 bit codeword, GF(2^6)                        */
+/*      bch63.c         63 bit codeword, GF(2^6)                        */
 /*                                                                      */
-/*      Jeff Reid       2024JUL11 23:20                                 */
+/*      Jeff Reid       2021JAN09 11:30                                 */
 /*----------------------------------------------------------------------*/
 #include <intrin.h>
 #include <memory.h>
@@ -16,7 +16,8 @@ typedef unsigned long long QWORD;
 /*                              ** GF(2^6): x^6 + x + 1 */
 #define POLY (0x43)
 
-#define ALPHA (0x02)
+/*                              ** GF(2^6) primitive */
+#define ALPHA (0x2)
 
 /*                              ** 4 error correction, 8 syndromes */
 #define NSYN (8)
@@ -28,26 +29,26 @@ typedef unsigned long long QWORD;
 #define DISPLAYE 0
 
 /*                              ** display error locator poly */
-#define DISPLAYP 0
+#define DISPLAYP 1
 
 typedef struct{                 /* vector structure */
     BYTE  size;
-    BYTE  data[63];
+    BYTE  data[15];
 }VECTOR;
 
 #if EEUCLID
 typedef struct{                 /* euclid structure */
     BYTE  size;                 /* # of data bytes */
     BYTE  indx;                 /* index to right side */
-    BYTE  data[62];             /* left and right side data */
+    BYTE  data[NSYN+2];         /* left and right side data */
 }EUCLID;
 #endif
 
 static __m128i poly;            /* generator poly */
 static __m128i invpoly;         /* 2^64 / POLY */
 
-static BYTE exp64[64];          /* exp64 table */
-static BYTE log64[64];          /* log64 table */
+static BYTE log2[64];           /* log2 table */
+static BYTE alog2[64];          /* alog2 table */
 static BYTE minplyf[128];       /* minimum polynomial flags */
 static BYTE minply[64];         /* minimum polynomials */
 static BYTE mincnt;             /* # of minimum polymials */
@@ -76,7 +77,6 @@ static VECTOR   pLambda;
 static VECTOR   vLocators;
 static VECTOR   vOffsets;
 
-static void ListAlphas();
 static void Tbli(void);
 static void GenPoly(void);
 static void Encode(void);
@@ -106,13 +106,9 @@ main()
 int ptn[4];                     /* error bit indexes */
 int n;                          /* number of errors to test */
 int i;
-
-#if 0
-    ListAlphas();               /* list alphas */
-#endif
     Tbli();                     /* init tables */
     GenPoly();                  /* generate poly info */
-    msg.m128i_u64[0] = 0x123456789f000000ull;   /* test message */
+    msg.m128i_u64[0] = 0x123456789a000000ull;       /* test message */
     Encode();                   /* encode message */
     encmsg = msg.m128i_u64[0];
     for(n = 1; n <= 4; n++){    /* test 1 to 4 bit error patterns */
@@ -135,71 +131,25 @@ int i;
 }
 
 /*----------------------------------------------------------------------*/
-/*      ListAlphas                                                      */
-/*----------------------------------------------------------------------*/
-static void ListAlphas()
-{
-__m128i d0, alpha;
-DWORD i, j, k;
-    k = 0;
-    for(j = 2; j < 0x40; j++){
-        alpha.m128i_u64[0] = j;
-        d0.m128i_u64[0] = 0x01;
-        i = 0;
-        while(1){
-            d0 = _mm_clmulepi64_si128(d0, alpha, 0x00);
-            if(d0.m128i_u16[0] & 0x0400)
-                d0.m128i_u16[0] ^= POLY<<4;
-            if(d0.m128i_u16[0] & 0x0200)
-                d0.m128i_u16[0] ^= POLY<<3;
-            if(d0.m128i_u16[0] & 0x0100)
-                d0.m128i_u16[0] ^= POLY<<2;
-            if(d0.m128i_u16[0] & 0x0080)
-                d0.m128i_u16[0] ^= POLY<<1;
-            if(d0.m128i_u16[0] & 0x0040)
-                d0.m128i_u16[0] ^= POLY<<0;
-            if(d0.m128i_u16[0] == 0x01)
-                break;
-            i++;
-        }
-        if(i == 0x3e){
-            printf(" %02x", j);
-            if(++k == 8){
-                printf("\n");
-                k = 0;}}
-    }
-}
-
-/*----------------------------------------------------------------------*/
 /*      Tbli                                                            */
 /*----------------------------------------------------------------------*/
 static void Tbli()              /* init tables */
 {
-__m128i d0, alpha;
 BYTE *p0, *p1;
-    alpha.m128i_u64[0] = ALPHA; /* init exp64 table */
-    d0.m128i_u64[0] = 0x01;
-    p0 = exp64;
+int d0;
+    d0 = 01;                        /* init alog2 table */
+    p0 = alog2;
     for(p1 = p0+64; p0 < p1;){
-        *p0++ = d0.m128i_u8[0];
-        d0 = _mm_clmulepi64_si128(d0, alpha, 0x00);
-        if(d0.m128i_u16[0] & 0x0400)
-            d0.m128i_u16[0] ^= POLY<<4;
-        if(d0.m128i_u16[0] & 0x0200)
-            d0.m128i_u16[0] ^= POLY<<3;
-        if(d0.m128i_u16[0] & 0x0100)
-            d0.m128i_u16[0] ^= POLY<<2;
-        if(d0.m128i_u16[0] & 0x0080)
-            d0.m128i_u16[0] ^= POLY<<1;
-        if(d0.m128i_u16[0] & 0x0040)
-            d0.m128i_u16[0] ^= POLY<<0;
-    }
+        *p0++ = d0;
+        d0 <<= 1;
+        if(d0 & 0x40)
+            d0 ^= POLY;}
 
-    p0 = exp64;                 /* init log64 table */
-    p1 = log64;
+    p0 = alog2;                     /* init log2 table */
+    p1 = log2;
     *p1 = 0;
-    for(d0.m128i_u8[0] = 0; d0.m128i_u8[0] < 63; d0.m128i_u8[0] += 1)
-        *(p1+*p0++) = d0.m128i_u8[0];
+    for(d0 = 0; d0 < 63; d0 += 1)
+        *(p1+*p0++) = d0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -216,10 +166,9 @@ BYTE sum;                       /* sum, looking for zeroes */
 BYTE apwr;                      /* alpha to power */
 BYTE i,j;
 
-    /* find minimum and non-duplicate polynomials for m[1] -> m[NSYN] */
-    i = 0;
-    do{
-        apwr = GFPwr(ALPHA,++i);
+    /* find minimum and non-duplicate polynomials for m[1] -> m[NSYN-1] */
+    for(i = 1; i < NSYN; i++){
+        apwr = GFPwr(ALPHA,i);
         for(mpoly = 0x02; mpoly <= 0x7f ; mpoly++){
             sum = 0;
             for(j = 0; j <= 6; j++){
@@ -235,7 +184,7 @@ BYTE i,j;
                 break;
             }
         }
-    }while(i < NSYN);
+    }
 
     poly.m128i_u64[0] = minply[0];
     for(i = 1; i < mincnt; i++){
@@ -267,7 +216,7 @@ static void Encode(void)
     par = _mm_clmulepi64_si128(msg, invpoly, 0x00); /* par[1] = quotient */
     par = _mm_clmulepi64_si128(par, poly, 0x01);    /* par[0] = product */
     par.m128i_u64[0] ^= msg.m128i_u64[0];           /* par[0] = remainder */
-    msg.m128i_u64[0] ^= par.m128i_u64[0];           /* msg[0] = encoded message */
+    msg.m128i_u64[0] |= par.m128i_u64[0];           /* msg[0] = encoded message */
 }
 
 /*----------------------------------------------------------------------*/
@@ -502,7 +451,7 @@ static void GenOffsets(void)
 BYTE i;
     vOffsets.size = vLocators.size;
     for(i = 0; i < vLocators.size; i++){
-        vOffsets.data[i] = log64[vLocators.data[i]];
+        vOffsets.data[i] = log2[vLocators.data[i]];
     }
 }
 
@@ -558,7 +507,7 @@ BYTE    i,j;
 /*----------------------------------------------------------------------*/
 static BYTE GFPwr(BYTE m0, BYTE m1)
 {
-    return exp64[(BYTE)((log64[m0]*(DWORD)m1)%63)];
+    return alog2[(BYTE)((log2[m0]*(DWORD)m1)%63)];
 }
 
 /*----------------------------------------------------------------------*/
@@ -569,10 +518,10 @@ static BYTE GFMpy(BYTE m0, BYTE m1) /* multiply */
 int m2;
     if(0 == m0 || 0 == m1)
         return(0);
-    m2 = log64[m0] + log64[m1];
+    m2 = log2[m0] + log2[m1];
     if(m2 > 63)
         m2 -= 63;
-    return(exp64[m2]);
+    return(alog2[m2]);
 }
 
 /*----------------------------------------------------------------------*/
@@ -583,10 +532,10 @@ static BYTE GFDiv(BYTE m0, BYTE m1) /* divide */
 int m2;
     if(0 == m0)
         return(0);
-    m2 = log64[m0] - log64[m1];
+    m2 = log2[m0] - log2[m1];
     if(m2 < 0)
         m2 += 63;
-    return(exp64[m2]);
+    return(alog2[m2]);
 }
 
 /*----------------------------------------------------------------------*/
