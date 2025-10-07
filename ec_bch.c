@@ -1,7 +1,7 @@
 void
 gf_gen_bch_matrix(unsigned char *a, int m, int k)
 {
-        unsigned char g[64];
+        unsigned char g[256];
         int i, j, n;
         unsigned char p;
         unsigned char d;
