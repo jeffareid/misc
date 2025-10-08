@@ -6,8 +6,9 @@ gf_gen_vnd_matrix(unsigned char *a, int m, int k)
         unsigned char d;
         memset(a, 0, k * m);
         // generate Vandermonde matrix
+        a[0] = 1;
         g = 1;
-        for (i = 0; i < m; i++) {
+        for (i = 1; i < m; i++) {
                 p = 1;
                 for (j = 0; j < k; j++) {
                         a[k*i+j] = p;
@@ -15,25 +16,18 @@ gf_gen_vnd_matrix(unsigned char *a, int m, int k)
                 }
                 g = gf_mul(g, 2);
         }
-        // modified gaussian jordan inversion of k by k sub-matrix of a
-        // and update row k to m-1
-        for (i = 0; i < k; i++) {
+        // gaussian reduction
+        for (i = 0; i < k; i++) {               /* for all columns */
                 p = a[k*i+i];                   /* p = pivot */
                 d = gf_inv(p);                  /* d = 1/p */
-                a[k*i+i] = 1;                   /* pivot = 1 */
-                for(n = 0; n < k; n++)          /* divide row by p */
-                        a[k*i+n] = gf_mul(a[k*i+n], d);
-                for(j = 0; j < m; j++){         /* update other rows */
-                        if(j == i)
+                for(j = 0; j < m; j++)          /* divide column by p */
+                        a[k*j+i] = gf_mul(a[k*j+i], d);
+                for(n = 0; n < k; n++){         /* update other columns */
+                        if(n == i)
                             continue;
-                        p = a[k*j+i];           /* p = pivot */
-                        a[k*j+i] = 0;           /* pivot = 0 */
-                        for(n = 0; n < k; n++)
-                                a[k*j+n] ^= gf_mul(a[k*i+n], p);
+                        p = a[k*i+n];
+                        for(j = 0; j < m; j++)
+                            a[k*j+n] ^= gf_mul(p, a[k*j+i]);
                 }
         }
-        // set a[...k] = identity matrix
-        memset(a, 0, k*k);
-        for(i = 0; i < k; i++)
-                a[k*i+i] = 1;
 }
