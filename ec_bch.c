@@ -23,7 +23,7 @@ gf_gen_bch_matrix(unsigned char *a, int m, int k)
                                 a[(i+j)*k+i] = g[n++];
                 }
         }
-        // gaussian reduction
+        // gaussian reduction (column swap not needed)
         for (i = 0; i < k; i++) {               /* for all columns */
                 p = a[k*i+i];                   /* p = pivot */
                 d = gf_inv(p);                  /* d = 1/p */
