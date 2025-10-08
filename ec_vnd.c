@@ -16,7 +16,7 @@ gf_gen_vnd_matrix(unsigned char *a, int m, int k)
                 }
                 g = gf_mul(g, 2);
         }
-        // gaussian reduction
+        // gaussian reduction (column swap not needed)
         for (i = 0; i < k; i++) {               /* for all columns */
                 p = a[k*i+i];                   /* p = pivot */
                 d = gf_inv(p);                  /* d = 1/p */
