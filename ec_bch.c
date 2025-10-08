@@ -23,25 +23,18 @@ gf_gen_bch_matrix(unsigned char *a, int m, int k)
                                 a[(i+j)*k+i] = g[n++];
                 }
         }
-        // modified gaussian jordan inversion of k by k sub-matrix of a
-        // and update row k to m-1
-        for (i = 0; i < k; i++) {
+        // gaussian reduction
+        for (i = 0; i < k; i++) {               /* for all columns */
                 p = a[k*i+i];                   /* p = pivot */
                 d = gf_inv(p);                  /* d = 1/p */
-                a[k*i+i] = 1;                   /* pivot = 1 */
-                for(n = 0; n < k; n++)          /* divide row by p */
-                        a[k*i+n] = gf_mul(a[k*i+n], d);
-                for(j = 0; j < m; j++){         /* update other rows */
-                        if(j == i)
+                for(j = 0; j < m; j++)          /* divide column by p */
+                        a[k*j+i] = gf_mul(a[k*j+i], d);
+                for(n = 0; n < k; n++){         /* update other columns */
+                        if(n == i)
                             continue;
-                        p = a[k*j+i];           /* p = pivot */
-                        a[k*j+i] = 0;           /* pivot = 0 */
-                        for(n = 0; n < k; n++)
-                                a[k*j+n] ^= gf_mul(a[k*i+n], p);
+                        p = a[k*i+n];
+                        for(j = 0; j < m; j++)
+                            a[k*j+n] ^= gf_mul(p, a[k*j+i]);
                 }
         }
-        // set a[...k] = identity matrix
-        memset(a, 0, k*k);
-        for(i = 0; i < k; i++)
-                a[k*i+i] = 1;
 }
