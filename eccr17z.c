@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
-/*      eccr17z.c       ecc rs GF(17) + syndromes                       */
+/*      eccr17z.c       ecc rs GF(17)                                   */
 /*                                                                      */
-/*      Jeff Reid       2025AUG16 17:30                                 */
+/*      Jeff Reid       2025AUG16 17:45                                 */
 /*----------------------------------------------------------------------*/
 #define _CRT_SECURE_NO_WARNINGS 1       /* disable sscanf warnings */
 
@@ -799,54 +799,16 @@ WORD    t;
 
     for(i = 0; i < vV.size; i++)        /* fix */
         vData.data[vO.data[i]] = GFSub(vData.data[vO.data[i]], vV.data[i]);
-    printf("vData: ");
-    ShowVector(&vData);
 
-    vS.size = F;                        /* check syndromes */
-    for(i = 0; i < F; i++)
-        vS.data[i] = 0;
-    for(j = 0; j < vData.size; j++){
-        pS[j].size = F;
-        for(i = 0; i < F; i++){
-            pS[j].data[i] = GFMpy(pP[j].data[i], vData.data[j]);
-            vS.data[F-1-i] = GFAdd(pS[j].data[i], vS.data[F-1-i]);
-        }
+    if(pO.size == pE.size){             /* handle zero case */
+        t = 1;
+        for(i = 0; i < vX.size; i++)
+            t = GFMpy(t, GFSub(0, vX.data[i]));
+        t = GFDiv(1,t);
+        t = GFMpy(t, GFMpy(pO.data[0],GFDiv(1,vU.data[vA2I.data[0]])));
+        printf("vZ:  %2d\n", t);
+        vData.data[vA2I.data[0]] = GFSub(vData.data[vA2I.data[0]], t);
     }
-#if DISPLAYS
-    printf("vS: ");
-    ShowVector(&vS);
-#endif
-    t = 0;
-    for(i = 0; i < vS.size; i++){
-        if(vS.data[i] != 0){
-            t = 1;
-            break;
-        }
-    }
-    if(t == 0){
-        printf("no errors\n");
-        return;
-    }
-    if(i != vS.size-1){
-        printf("uncorrectable\n");
-        for (i = 0; i < vV.size; i++)   /* unfix */
-            vData.data[vO.data[i]] = GFAdd(vData.data[vO.data[i]], vV.data[i]);
-        printf("vData: ");
-        ShowVector(&vData);
-        return;
-    }
-    t = vA2I.data[0];                   /* check for vA.data[] = 0 */
-#if DISPLAYS                            /* fix single error at A2I[0] */
-    printf("pP%x:", t);
-    ShowVector(&pP[t]);
-#endif
-    vV.size = 1;
-    vV.data[0] = GFDiv(vS.data[vS.size-1],pP[t].data[0]);
-#if DISPLAYS
-    printf("vV: ");
-    ShowVector(&vV);
-#endif
-    vData.data[t] = GFSub(vData.data[t], vV.data[0]);
 }
 #endif
 
@@ -1344,7 +1306,7 @@ static void DoUser(void)
 {
 int i, u0, u1;
 
-    printf("eccr17z 1.0\n");
+    printf("eccr17z 1.1\n");
 
     while(1){
         printf("Enter # of parity values (1->%d):\n", MAXPAR);
