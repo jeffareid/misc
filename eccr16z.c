@@ -803,9 +803,6 @@ BYTE    t;
         printf("vZ:  %1x\n", t);
         vData.data[vA2I.data[0]] = GFSub(vData.data[vA2I.data[0]], t);
     }
-    printf("vData: ");
-    ShowVector(&vData);
-
 }
 #endif
 
@@ -1197,7 +1194,7 @@ BYTE t;
         abNeg[i] = 16-i;
 
     vA.size = N;                        /* init vA */
-#if 0
+#if 1
     memcpy(vA.data, "\x7\xf\x0\x1\x5\xd\x9\x3\xa\x2\x8\xb\x4\xc\x6\xe", 16);
 #else
     memcpy(vA.data, "\x0\x1\x2\x3\x4\x5\x6\x7\x8\x9\xa\xb\xc\xd\xe\xf", 16);
