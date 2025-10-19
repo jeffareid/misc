@@ -10,7 +10,7 @@
         PUBLIC  xenc
         .code
         align           16
-;       xenc(rcx=abTbl, rdx=pDat, r8 = ncol) k=12 p=4
+;       xenc(rcx=abTbl, rdx=pDat, r8 = ncol)
 ;       rax, rcx, rdx, r8, r9, r10, r11 xmm0, xmm1, xmm2, xmm3, xmm4, xmm5 free
 ;       k=15 p=5 poly = 01 x^5 + ce x^4 + e6 x^3 + e6 x^2 + ce x + 01
 ;                       x5       x4       x3       x2       x1     x0
