@@ -40,45 +40,45 @@ enc0:   vpxorq          zmm4,zmm4,zmm4          ;zero regs
         vgf2p8affineqb  zmm5,zmm4,zmm31,0       ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm4,zmm30,0       ;z6 = x0*e6
         vpxorq          zmm3,zmm3,zmm5          ;x4 ^= z5
-        vpxorq          zmm0,zmm0,zmm5          ;x3 ^= z5
-        vpxorq          zmm2,zmm2,zmm6          ;x2 ^= z6
-        vpxorq          zmm1,zmm1,zmm6          ;x1 ^= z6
+        vpxorq          zmm0,zmm0,zmm5          ;x1 ^= z5
+        vpxorq          zmm2,zmm2,zmm6          ;x3 ^= z6
+        vpxorq          zmm1,zmm1,zmm6          ;x2 ^= z6
         add             rdx,r8
 
         vpxorq          zmm3,zmm3,[rdx]         ;x0 ^= data
         vgf2p8affineqb  zmm5,zmm3,zmm31,0       ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm3,zmm30,0       ;z6 = x0*e6
         vpxorq          zmm2,zmm2,zmm5          ;x4 ^= z5
-        vpxorq          zmm4,zmm4,zmm5          ;x3 ^= z5
-        vpxorq          zmm1,zmm1,zmm6          ;x2 ^= z6
-        vpxorq          zmm0,zmm0,zmm6          ;x1 ^= z6
+        vpxorq          zmm4,zmm4,zmm5          ;x1 ^= z5
+        vpxorq          zmm1,zmm1,zmm6          ;x3 ^= z6
+        vpxorq          zmm0,zmm0,zmm6          ;x2 ^= z6
         add             rdx,r8
 
         vpxorq          zmm2,zmm2,[rdx]         ;x0 ^= data
         vgf2p8affineqb  zmm5,zmm2,zmm31,0       ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm2,zmm30,0       ;z6 = x0*e6
         vpxorq          zmm1,zmm1,zmm5          ;x4 ^= z5
-        vpxorq          zmm3,zmm3,zmm5          ;x3 ^= z5
-        vpxorq          zmm0,zmm0,zmm6          ;x2 ^= z6
-        vpxorq          zmm4,zmm4,zmm6          ;x1 ^= z6
+        vpxorq          zmm3,zmm3,zmm5          ;x1 ^= z5
+        vpxorq          zmm0,zmm0,zmm6          ;x3 ^= z6
+        vpxorq          zmm4,zmm4,zmm6          ;x2 ^= z6
         add             rdx,r8
 
         vpxorq          zmm1,zmm1,[rdx]         ;x0 ^= data
         vgf2p8affineqb  zmm5,zmm1,zmm31,0       ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm1,zmm30,0       ;z6 = x0*e6
         vpxorq          zmm0,zmm0,zmm5          ;x4 ^= z5
-        vpxorq          zmm2,zmm2,zmm5          ;x3 ^= z5
-        vpxorq          zmm4,zmm4,zmm6          ;x2 ^= z6
-        vpxorq          zmm3,zmm3,zmm6          ;x1 ^= z6
+        vpxorq          zmm2,zmm2,zmm5          ;x1 ^= z5
+        vpxorq          zmm4,zmm4,zmm6          ;x3 ^= z6
+        vpxorq          zmm3,zmm3,zmm6          ;x2 ^= z6
         add             rdx,r8
 
         vpxorq          zmm0,zmm0,[rdx]         ;x0 ^= data
         vgf2p8affineqb  zmm5,zmm0,zmm31,0       ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm0,zmm30,0       ;z6 = x0*e6
         vpxorq          zmm4,zmm4,zmm5          ;x4 ^= z5
-        vpxorq          zmm1,zmm1,zmm5          ;x3 ^= z5
-        vpxorq          zmm3,zmm3,zmm6          ;x2 ^= z6
-        vpxorq          zmm2,zmm2,zmm6          ;x1 ^= z6
+        vpxorq          zmm1,zmm1,zmm5          ;x1 ^= z5
+        vpxorq          zmm3,zmm3,zmm6          ;x3 ^= z6
+        vpxorq          zmm2,zmm2,zmm6          ;x2 ^= z6
         add             rdx,r8
 
         endm
