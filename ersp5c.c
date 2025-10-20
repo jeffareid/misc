@@ -104,7 +104,11 @@ BYTE b, c, d, p;
 }
 
 #define NROW (20ull)
+#if 1
 #define NCOL (2*1024*1024ull)
+#else
+#define NCOL (256ull)
+#endif
 
 int main()
 {
