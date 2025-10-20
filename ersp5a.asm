@@ -28,7 +28,7 @@ xenc    proc
         lea             r10,[r8+r8*2]           ;r10 = r8*3
         lea             r11,[r8+r8*4]           ;r11 = r8*5
 
-enc0:   vmovdqa64       zmm7,[rdx]
+enc0:   vmovdqa64       zmm7,[rdx]              ;preload data
         vpxorq          zmm4,zmm4,zmm4          ;zero regs
         vpxorq          zmm3,zmm3,zmm3
         vpxorq          zmm2,zmm2,zmm2
@@ -40,7 +40,7 @@ enc0:   vmovdqa64       zmm7,[rdx]
         rept 3                                  ;encode 3*5 = 15 rows
 
         vpxorq          zmm4,zmm4,zmm7          ;x0 ^= data
-        vmovdqa64       zmm7,[rdx+r8]
+        vmovdqa64       zmm7,[rdx+r8]           ;preload data
         vgf2p8affineqb  zmm5,zmm4,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm4,zmm8,0        ;z6 = x0*e6
         vpxorq          zmm3,zmm3,zmm5          ;x4 ^= z5
@@ -49,7 +49,7 @@ enc0:   vmovdqa64       zmm7,[rdx]
         vpxorq          zmm1,zmm1,zmm6          ;x2 ^= z6
 
         vpxorq          zmm3,zmm3,zmm7          ;x0 ^= data
-        vmovdqa64       zmm7,[rdx+r8*2]
+        vmovdqa64       zmm7,[rdx+r8*2]         ;preload data
         vgf2p8affineqb  zmm5,zmm3,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm3,zmm8,0        ;z6 = x0*e6
         vpxorq          zmm2,zmm2,zmm5          ;x4 ^= z5
@@ -58,7 +58,7 @@ enc0:   vmovdqa64       zmm7,[rdx]
         vpxorq          zmm0,zmm0,zmm6          ;x2 ^= z6
 
         vpxorq          zmm2,zmm2,zmm7          ;x0 ^= data
-        vmovdqa64       zmm7,[rdx+r10]
+        vmovdqa64       zmm7,[rdx+r10]          ;preload data
         vgf2p8affineqb  zmm5,zmm2,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm2,zmm8,0        ;z6 = x0*e6
         vpxorq          zmm1,zmm1,zmm5          ;x4 ^= z5
@@ -67,7 +67,7 @@ enc0:   vmovdqa64       zmm7,[rdx]
         vpxorq          zmm4,zmm4,zmm6          ;x2 ^= z6
 
         vpxorq          zmm1,zmm1,zmm7          ;x0 ^= data
-        vmovdqa64       zmm7,[rdx+r8*4]
+        vmovdqa64       zmm7,[rdx+r8*4]         ;preload data
         vgf2p8affineqb  zmm5,zmm1,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm1,zmm8,0        ;z6 = x0*e6
         vpxorq          zmm0,zmm0,zmm5          ;x4 ^= z5
