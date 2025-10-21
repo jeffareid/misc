@@ -37,8 +37,9 @@ enc0:   vmovdqa64       zmm7,[rdx]              ;preload data
 
 ;       logical values of zmm4 to zmm0 cycle during encode
 
+encd    =               3
         rept 3                                  ;encode 3*5 = 15 rows
-
+encd    =               encd-1
         vpxorq          zmm4,zmm4,zmm7          ;x0 ^= data
         vmovdqa64       zmm7,[rdx+r8]           ;preload data
         vgf2p8affineqb  zmm5,zmm4,zmm9,0        ;z5 = x0*ce
@@ -76,7 +77,9 @@ enc0:   vmovdqa64       zmm7,[rdx]              ;preload data
         vpxorq          zmm3,zmm3,zmm6          ;x2 ^= z6
 
         vpxorq          zmm0,zmm0,zmm7          ;x0 ^= data
+        if              encd
         vmovdqa64       zmm7,[rdx+r11]          ;preload data
+        endif
         add             rdx,r11                 ;rdx += ncol*5
         vgf2p8affineqb  zmm5,zmm0,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm0,zmm8,0        ;z6 = x0*e6
