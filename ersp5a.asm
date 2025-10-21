@@ -76,6 +76,7 @@ enc0:   vmovdqa64       zmm7,[rdx]              ;preload data
         vpxorq          zmm3,zmm3,zmm6          ;x2 ^= z6
 
         vpxorq          zmm0,zmm0,zmm7          ;x0 ^= data
+        vmovdqa64       zmm7,[rdx+r11]          ;preload data
         add             rdx,r11                 ;rdx += ncol*5
         vgf2p8affineqb  zmm5,zmm0,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm0,zmm8,0        ;z6 = x0*e6
