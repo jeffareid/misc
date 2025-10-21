@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------*/
 /*      ersp5c.c        RS(20,15) k=15 p=5 erasure code                 */
 /*                                                                      */
-/*      Copyright(c)    Jeff Reid   18OCT2025 18:15                     */
+/*      Copyright(c)    Jeff Reid   18OCT2025 18:30                     */
 /*----------------------------------------------------------------------*/
 
 #include <stdio.h>
@@ -105,25 +105,22 @@ BYTE b, c, d, p;
 
 #define NROW (20ull)
 #if 1
-#define NCOL (2*1024*1024ull)
+#define NCOL (1*1024*1024ull)
 #else
 #define NCOL (256ull)
 #endif
 
 int main()
 {
-QWORD i;
+QWORD i, j;
     abDat = malloc(NROW*NCOL+64);
     pDat = (BYTE *)(((QWORD)abDat+63)&0xffffffffffffffc0ull);
-    for (i = 0; i < NROW*NCOL; i++)
-        pDat[i] = (BYTE)0;
-#if 1
-    for(i = 0; i < NCOL; i++)
-        pDat[i] = 0x01u;
-#endif
+    for(j = 0; j < NROW; j++)
+        for (i = 0; i < NCOL; i++)
+            pDat[j*NCOL+i] = (BYTE)(j+1);
     gf_init();
     ctTimeStart = clock();
-    for(i = 0; i < 1024; i++)
+    for(i = 0; i < 2048; i++)
         xenc(abTbl, pDat, NCOL);
     ctTimeStop = clock();
     printf("# ticks: %d\n", ctTimeStop-ctTimeStart);
