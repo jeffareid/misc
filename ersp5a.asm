@@ -77,6 +77,7 @@ encd    =               encd-1
         if              encd
         vmovdqa64       zmm7,[rdx+r11]          ;preload data
         endif
+        add             rdx,r11                 ;rdx += ncol*5
         vgf2p8affineqb  zmm5,zmm0,zmm9,0        ;z5 = x0*ce
         vgf2p8affineqb  zmm6,zmm0,zmm8,0        ;z6 = x0*e6
         vpxorq          zmm1,zmm1,zmm5          ;x1 ^= z5
@@ -87,7 +88,6 @@ encd    =               encd-1
         endif
         vpxorq          zmm2,zmm2,zmm6          ;x2 ^= z6
         vpxorq          zmm3,zmm3,zmm6          ;x3 ^= z6
-        add             rdx,r11                 ;rdx += ncol*5
 
         endm
 
