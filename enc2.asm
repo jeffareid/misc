@@ -3,51 +3,64 @@
 ;-------------------------------------------------------;
 ;       enc2    286 enc code                            ;
 ;                                                       ;
-;       Copyright(c)	Jeff Reid    01MAR88 11:00      ;
+;       Jeff Reid       01MAR88 11:00                   ;
 ;-------------------------------------------------------;
 ;       equates                                         ;
 ;-------------------------------------------------------;
         .286
         .sall
         .model  small,c
+stksz   equ     00400h          ;initial stack size
+wrksz   equ     00800h          ;work | stack size
 ;-------------------------------------------------------;
 ;       unitialized data section                        ;
 ;-------------------------------------------------------;
         .data?
-log2    db      256 dup (?)     ;log2 table
-alog2   db      256 dup (?)     ;alog2 table
-mxc0    db      256 dup (?)     ;mpy by c0 table
-bfr     db      32768 dup (?)   ;bfr
 ;-------------------------------------------------------;
 ;       stack                                           ;
 ;-------------------------------------------------------;
-        .stack  1024
+        .stack  stksz           ;initial stack size
 ;-------------------------------------------------------;
 ;       data section                                    ;
 ;-------------------------------------------------------;
         .data
 ;-------------------------------------------------------;
+;       work | stack segment                            ;
+;-------------------------------------------------------;
+exp2    equ     00000h          ;exp2 table
+log2    equ     00200h          ;log2 table
+mxc0    equ     00300h          ;mpy by c0 table
+;-------------------------------------------------------;
+;       bfr segment                                     ;
+;-------------------------------------------------------;
+bfr     equ     00000h          ;buffer
+;-------------------------------------------------------;
 ;       code section                                    ;
 ;-------------------------------------------------------;
         .code
         assume  cs:@code,ds:@data,es:nothing,ss:nothing
-
 ;-------------------------------------------------------;
 ;       enc     encode data                             ;
-;               in: 2(sp) = virt adr bfr                ;
 ;-------------------------------------------------------;
-r0      equ     al              ;define remainder bytes
+r0      equ     al                      ;define remainder bytes
 r1      equ     cl
 r2      equ     dl
 ;
 enc     proc    near
-        push    bp              ;set up
+        push    bp
         mov     bp,sp
+        push    ds
         push    es
+        push    bx
+        push    cx
+        push    dx
+        push    si
         push    di
-        xor     bx,bx
+        mov     ax,ss                   ;ds = ss
+        mov     ds,ax
+        les     di,[bp+4]
+        mov     bx,mxc0
         mov     si,1024
-        les     di,4[bp]        ;es:di = adr
 ;
 enc0:   xor     ax,ax
         xor     cx,cx
@@ -55,30 +68,30 @@ enc0:   xor     ax,ax
 encd    =       0
         xor     r1,es:[di+encd*1024]    ;do 1st 2 bytes
         mov     bl,r1
-        xor     r0,mxc0[bx]
-        xor     r2,mxc0[bx]
+        xor     r0,[bx]
+        xor     r2,[bx]
 encd    =       encd+1
         xor     r0,es:[di+encd*1024]
         mov     bl,r0
-        xor     r2,mxc0[bx]
-        xor     r1,mxc0[bx]
+        xor     r2,[bx]
+        xor     r1,[bx]
 encd    =       encd+1
 
         rept    9                       ;do remaining 27 bytes
         xor     r2,es:[di+encd*1024]
         mov     bl,r2
-        xor     r1,mxc0[bx]
-        xor     r0,mxc0[bx]
+        xor     r1,[bx]
+        xor     r0,[bx]
 encd    =       encd+1
         xor     r1,es:[di+encd*1024]
         mov     bl,r1
-        xor     r0,mxc0[bx]
-        xor     r2,mxc0[bx]
+        xor     r0,[bx]
+        xor     r2,[bx]
 encd    =       encd+1
         xor     r0,es:[di+encd*1024]
         mov     bl,r0
-        xor     r2,mxc0[bx]
-        xor     r1,mxc0[bx]
+        xor     r2,[bx]
+        xor     r1,[bx]
 encd    =       encd+1
         endm
 
@@ -89,7 +102,12 @@ encd    =       encd+1
         dec     si
         jnz     enc0
         pop     di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
         pop     es
+        pop     ds
         pop     bp
         ret
 enc     endp
@@ -97,84 +115,95 @@ enc     endp
 ;       tbli    initialize table                        ;
 ;-------------------------------------------------------;
 tbli    proc    near
-        mov     bx,offset alog2 ;init alog2 table
-        mov     al,01
-tbli0:  mov     [bx],al
-        inc     bx
-        add     al,al
+        push    ds
+        mov     ax,ss                   ;ds = ss
+        mov     ds,ax
+        mov     bx,exp2                 ;init exp2 table
+        mov     al,01                   ; 00200h entries
+        jmp     short tbli1             ; for faster mpy
+tbli0:  add     al,al
         jnc     tbli1
         xor     al,87h
-tbli1:  cmp     al,01
+tbli1:  mov     [bx],al
+        inc     bx
+        cmp     bx,log2
         jne     tbli0
 ;
-        xor     bx,bx           ;init log2 table
-        mov     si,offset alog2
-        mov     log2,0ffh
+        mov     si,exp2                 ;init log2 table
+        mov     byte ptr [bx],0ffh
         xor     ax,ax
 tbli2:  mov     bl,[si]
-        mov     log2[bx],al
+        mov     [bx],al
         inc     si
         inc     ax
-        cmp     ax,255
+        cmp     ax,000ffh
         jne     tbli2
 ;
-        mov     si,offset mxc0  ;init mpy by c0 table
+        mov     si,mxc0                 ;init mpy by c0 table
         mov     cx,0c000h
 tbli3:  call    mpy
         mov     [si],al
         inc     si
         inc     cl
-        jne     tbli3
+        jnz     tbli3
+        pop     ds
         ret
 tbli    endp
 ;-------------------------------------------------------;
-;       mpy     ax = ch*cl                              ;
+;       mpy     al = ch*cl                              ;
 ;-------------------------------------------------------;
 mpy     proc    near
-        xor     ax,ax           ;return 0 if 0
+        xor     ax,ax                   ;return 0 if 0
         or      cl,cl
-        je      mpy1
+        je      mpy0
         or      ch,ch
-        je      mpy1
-        xor     bx,bx           ;ax=log[ch]+log[cl]
+        je      mpy0
+        mov     bx,log2                 ;bx=log[ch]+log[cl]
         mov     bl,ch
-        mov     al,log2[bx]
+        mov     al,[bx]
         mov     bl,cl
-        mov     bl,log2[bx]
-        add     ax,bx
-        cmp     ax,255          ;ax = mod(ax, 255)
-        jb      mpy0
-        sub     ax,255
-mpy0:   xchg    ax,bx           ;ax = alog2[ax]
-        xor     ax,ax
-        mov     al,alog2[bx]
-mpy1:   ret
+        mov     bl,[bx]
+        add     bx,ax
+        mov     al,[bx+exp2-log2]       ;ax = ch*cl
+mpy0:   ret
 mpy     endp
-
 ;-------------------------------------------------------;
 ;       main                                            ;
 ;-------------------------------------------------------;
 main    proc    far
-        mov     ax,@data
+        mov     ax,@data                ;set ds
         mov     ds,ax
-        mov     es,ax
-        call    tbli
-        lea     di,bfr
+        mov     ax,04a00h               ;free memory
+        mov     bx,ss
+        add     bx,stksz/16
+        int     21h
+        mov     ax,04800h               ;bx = # free paras
+        mov     bx,0ffffh
+        int     21h
+        mov     ax,4800h                ;allocate
+        int     21h
+        cli
+        mov     ss,ax                   ;ss = working segment
+        mov     sp,wrksz
+        sti
+        add     ax,wrksz/16
+        mov     es,ax                   ;es = bfr segment
+        call    tbli                    ;init tables
+        mov     di,bfr                  ;init bfr
         mov     cx,32768
         xor     ax,ax
         rep     stosb
-        lea     di,bfr
+        mov     di,bfr
         mov     cx,1024
         mov     al,01h
         rep     stosb
-        lea     di,bfr
+        xor     di,di
         push    es
         push    di
-        call    enc
+        call    enc                     ;encode
         add     sp,4
         mov     ax,4c00h
         int     21h
 main    endp
-
         end     main
 
