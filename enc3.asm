@@ -158,6 +158,16 @@ main    proc
         rep     stosd
         lea     edi,bfr
         call    enc
+        lea     edi,bfr
+        mov     eax,001010101h
+        mov     ebx,29
+main0:  mov     ecx,000000100h
+        rep     stosd
+        add     eax,001010101h
+        dec     ebx
+        jnz     main0
+        lea     edi,bfr
+        call    enc
         pop     ebx
         pop     esi
         pop     edi
