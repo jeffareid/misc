@@ -91,7 +91,7 @@ tbli    endp
 ;-------------------------------------------------------;
 ;       enc     encode data                             ;
 ;                                                       ;
-;       a single instruction multplies 2 bytes by c0    ;
+;       a single instruction multiplies 2 bytes by c0   ;
 ;       and xor to working parity register such as      ;
 ;       xor     r2w,[ebx+r0d*2]                         ;
 ;-------------------------------------------------------;
